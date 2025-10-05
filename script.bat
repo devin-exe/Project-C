@@ -3,7 +3,7 @@ setlocal enabledelayedexpansion
 
 :: #############################################################################
 :: #                                                                           #
-:: #                  CyberPatriot Security Script                             #
+:: #                  CyberPatriot Security Script (REVISED)                   #
 :: #                                                                           #
 :: #                Manages users, admins, and security settings.              #
 :: #                MUST BE RUN AS ADMINISTRATOR.                              #
@@ -61,15 +61,21 @@ echo [--- Starting User and Administrator Management ---]
 :: 1a. Remove Unauthorized Users
 :: --------------------------------------------------
 echo [+] Checking for and removing unauthorized user accounts...
-for /f "skip=4 tokens=1" %%U in ('net user') do (
+:: FIX #1: Using 'wmic' to get a reliable, single-column list of users.
+for /f "skip=1 tokens=*" %%U in ('wmic useraccount get name') do (
     set "user=%%U"
-    if /i not "!user!"=="%USERNAME%" (
-        echo !IGNORE_USERS! | findstr /i /c:"!user!" >nul
-        if !errorlevel! neq 0 (
-            findstr /i /x /c:"!user!" users.txt >nul
+    if defined user (
+        if /i not "!user!"=="%USERNAME%" (
+            echo !IGNORE_USERS! | findstr /i /c:"!user!" >nul
             if !errorlevel! neq 0 (
-                echo     - Unauthorized user '!user!' found. DELETING account and profile...
-                net user "!user!" /delete
+                findstr /i /x /c:"!user!" users.txt >nul
+                if !errorlevel! neq 0 (
+                    findstr /i /x /c:"!user!" admins.txt >nul
+                    if !errorlevel! neq 0 (
+                        echo     - Unauthorized user '!user!' found. DELETING account and profile...
+                        net user "!user!" /delete
+                    )
+                )
             )
         )
     )
@@ -103,7 +109,11 @@ for /f "tokens=*" %%A in ('net localgroup Administrators') do (
 :: 1c. Create Authorized Users and Reset Passwords
 :: --------------------------------------------------
 echo [+] Creating missing authorized users and resetting passwords...
-for /f %%U in (users.txt) do (
+:: Combine both user and admin lists for this section to avoid conflicts.
+type users.txt > all_authorized.tmp
+type admins.txt >> all_authorized.tmp
+
+for /f "delims=" %%U in ('sort all_authorized.tmp ^| uniq') do (
     set "user=%%U"
     net user "!user!" >nul 2>&1
     if !errorlevel! neq 0 (
@@ -120,6 +130,7 @@ for /f %%U in (users.txt) do (
         echo     - Skipping password reset for current user: !user!
     )
 )
+del all_authorized.tmp
 
 :: --------------------------------------------------
 :: 1d. Ensure Authorized Admins Have Admin Rights
@@ -142,7 +153,8 @@ echo [--- Starting Security Hardening ---]
 :: --------------------------------------------------
 echo [+] Enabling Windows Security features via PowerShell...
 powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $false" >nul
-echo     - Real-time Virus & Threat Protection: ENABLED
+:: FIX #2: Escaped the ampersand '&' with a caret '^' to treat it as text.
+echo     - Real-time Virus ^& Threat Protection: ENABLED
 powershell -Command "Set-MpPreference -DisableBehaviorMonitoring $false" >nul
 echo     - Behavior Monitoring: ENABLED
 
@@ -169,12 +181,15 @@ if exist "LGPO.exe" (
 :: 2c. Check for and Install Windows Updates
 :: --------------------------------------------------
 echo [+] Checking for and installing Windows Updates (this may take a while)...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "& {
-    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force > $null;
-    Install-Module -Name PSWindowsUpdate -Force -SkipPublisherCheck > $null;
-    Import-Module PSWindowsUpdate;
-    Get-WindowsUpdate -Install -AcceptAll -AutoReboot | Out-File -FilePath Windows_Update_Log.txt
-}"
+:: FIX #3: Create a temporary PowerShell script to avoid command line parsing errors.
+echo Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -ErrorAction SilentlyContinue > temp_update_script.ps1
+echo Install-Module -Name PSWindowsUpdate -Force -SkipPublisherCheck -ErrorAction SilentlyContinue >> temp_update_script.ps1
+echo Import-Module PSWindowsUpdate -ErrorAction SilentlyContinue >> temp_update_script.ps1
+echo Get-WindowsUpdate -Install -AcceptAll -AutoReboot ^| Out-File -FilePath Windows_Update_Log.txt >> temp_update_script.ps1
+
+powershell -NoProfile -ExecutionPolicy Bypass -File .\\temp_update_script.ps1
+del temp_update_script.ps1
+
 echo     - Windows Update process initiated. See Windows_Update_Log.txt for details.
 
 echo [--- Security Hardening Complete ---]
@@ -192,7 +207,6 @@ echo ##############################################################
 echo.
 pause
 
-:: ADDED THIS LINE FOR A CLEAN EXIT FROM THE MAIN SCRIPT BODY
 goto :eof
 
 :: ############################################################################
@@ -202,7 +216,6 @@ goto :eof
 :: ############################################################################
 
 :GeneratePassword
-:: A secure password will be generated for each user.
 :: This function generates a 14-character alphanumeric password.
 set "ALPHANUM=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 set "NEW_PASS="
