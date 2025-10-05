@@ -60,7 +60,7 @@ echo [--- Starting User and Administrator Management ---]
 :: 1a. Remove Unauthorized Users
 :: --------------------------------------------------
 echo [+] Checking for and removing unauthorized user accounts...
-for /f "skip=4 tokens=1" %%U in ('net user') do (
+for /f "tokens=*" %%U in ('net user') do (
     set "user=%%U"
     if /i not "!user!"=="%USERNAME%" (
         echo !IGNORE_USERS! | findstr /i /c:"!user!" >nul
