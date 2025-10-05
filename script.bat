@@ -141,7 +141,7 @@ echo [--- Starting Security Hardening ---]
 :: --------------------------------------------------
 echo [+] Enabling Windows Security features via PowerShell...
 powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $false" >nul
-echo     - Real-time Virus & Threat Protection: ENABLED
+echo     - Real-time Virus ^& Threat Protection: ENABLED
 powershell -Command "Set-MpPreference -DisableBehaviorMonitoring $false" >nul
 echo     - Behavior Monitoring: ENABLED
 
