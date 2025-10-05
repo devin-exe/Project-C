@@ -187,7 +187,7 @@ echo.
 echo ##############################################################
 echo # Script Finished!                                           #
 echo #                                                            #
-echo # - New passwords have been saved to: %LOG_FILE%      #
+echo # - New passwords have been saved to: %LOG_FILE%             #
 echo # - A reboot may be required for all changes to take effect. #
 echo ##############################################################
 echo.
