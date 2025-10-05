@@ -168,12 +168,14 @@ if exist "LGPO.exe" (
 :: 2c. Check for and Install Windows Updates
 :: --------------------------------------------------
 echo [+] Checking for and installing Windows Updates (this may take a while)...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "& {
-    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force > $null;
-    Install-Module -Name PSWindowsUpdate -Force -SkipPublisherCheck > $null;
-    Import-Module PSWindowsUpdate;
-    Get-WindowsUpdate -Install -AcceptAll -AutoReboot | Out-File -FilePath Windows_Update_Log.txt
-}"
+echo Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -ErrorAction SilentlyContinue > temp_update_script.ps1
+echo Install-Module -Name PSWindowsUpdate -Force -SkipPublisherCheck -ErrorAction SilentlyContinue >> temp_update_script.ps1
+echo Import-Module PSWindowsUpdate -ErrorAction SilentlyContinue >> temp_update_script.ps1
+echo Get-WindowsUpdate -Install -AcceptAll -AutoReboot ^| Out-File -FilePath Windows_Update_Log.txt >> temp_update_script.ps1
+
+powershell -NoProfile -ExecutionPolicy Bypass -File .\\temp_update_script.ps1
+del temp_update_script.ps1
+
 echo     - Windows Update process initiated. See Windows_Update_Log.txt for details.
 
 echo [--- Security Hardening Complete ---]
