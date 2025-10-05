@@ -1,6 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
-cd /d "%~dp0"
+
 :: #############################################################################
 :: #                                                                           #
 :: #                  CyberPatriot Security Script                             #
@@ -9,6 +9,9 @@ cd /d "%~dp0"
 :: #                MUST BE RUN AS ADMINISTRATOR.                              #
 :: #                                                                           #
 :: #############################################################################
+
+:: === FIX: Set the script's working directory to its own location ===
+cd /d "%~dp0"
 
 :: ============================================================================
 :: SCRIPT SETUP AND PRE-CHECKS
@@ -53,17 +56,6 @@ echo.
 :: ============================================================================
 echo.
 echo [--- Starting User and Administrator Management ---]
-
-:: A secure password will be generated for each user.
-:: This function generates a 14-character alphanumeric password.
-:GeneratePassword
-set "ALPHANUM=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-set "NEW_PASS="
-for /l %%N in (1,1,14) do (
-    set /a "RAND_NUM=!RANDOM! %% 62"
-    for %%R in (!RAND_NUM!) do set "NEW_PASS=!NEW_PASS!!ALPHANUM:~%%R,1!"
-)
-goto :eof
 
 :: --------------------------------------------------
 :: 1a. Remove Unauthorized Users
@@ -199,3 +191,23 @@ echo # - A reboot may be required for all changes to take effect. #
 echo ##############################################################
 echo.
 pause
+
+:: ADDED THIS LINE FOR A CLEAN EXIT FROM THE MAIN SCRIPT BODY
+goto :eof
+
+:: ############################################################################
+:: #                                                                          #
+:: #                          SUBROUTINES                                     #
+:: #                                                                          #
+:: ############################################################################
+
+:GeneratePassword
+:: A secure password will be generated for each user.
+:: This function generates a 14-character alphanumeric password.
+set "ALPHANUM=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+set "NEW_PASS="
+for /l %%N in (1,1,14) do (
+    set /a "RAND_NUM=!RANDOM! %% 62"
+    for %%R in (!RAND_NUM!) do set "NEW_PASS=!NEW_PASS!!ALPHANUM:~%%R,1!"
+)
+goto :eof
