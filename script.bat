@@ -3,10 +3,10 @@ setlocal enabledelayedexpansion
 
 :: #############################################################################
 :: #                                                                           #
-:: #                  CyberPatriot Security Script                             #
+:: #                    CyberPatriot Security Script                           #
 :: #                                                                           #
-:: #                Manages users, admins, and security settings.              #
-:: #                MUST BE RUN AS ADMINISTRATOR.                              #
+:: #             Manages users, admins, and security settings.                 #
+:: #                   MUST BE RUN AS ADMINISTRATOR.                           #
 :: #                                                                           #
 :: #############################################################################
 
@@ -43,24 +43,29 @@ echo [+] Required files (users.txt, admins.txt) found.
 
 :: 3. Define accounts to ignore to prevent system breakage
 set "IGNORE_USERS=Administrator Guest DefaultAccount WDAGUtilityAccount"
-set "LOG_FILE=Password_Changes.log"
+set "LOG_FILE=Security_Script.log"
 
 :: Clear previous log file and write header
 echo Script run on %date% at %time% > %LOG_FILE%
 echo ------------------------------------------ >> %LOG_FILE%
-echo.
+echo. >> %LOG_FILE%
+echo PASSWORD CHANGES >> %LOG_FILE%
+echo ---------------- >> %LOG_FILE%
 
 :: ============================================================================
 :: SECTION 1: USER AND ADMINISTRATOR MANAGEMENT
 :: ============================================================================
 echo.
 echo [--- Starting User and Administrator Management ---]
+:: Run external scripts to get current system users and admins
+call get_all_users.bat
+call get_all_admins.bat
 
 :: --------------------------------------------------
 :: 1a. Remove Unauthorized Users
 :: --------------------------------------------------
 echo [+] Checking for and removing unauthorized user accounts...
-for /f "skip=4 tokens=1" %%U in ('net user') do (
+for /f "usebackq" %%U in ("system_users.txt") do (
     set "user=%%U"
     if /i not "!user!"=="%USERNAME%" (
         echo !IGNORE_USERS! | findstr /i /c:"!user!" >nul
@@ -69,6 +74,7 @@ for /f "skip=4 tokens=1" %%U in ('net user') do (
             if !errorlevel! neq 0 (
                 echo     - Unauthorized user '!user!' found. DELETING account and profile...
                 net user "!user!" /delete
+                echo DELETED Unauthorized User: !user! >> %LOG_FILE%
             )
         )
     )
@@ -78,22 +84,15 @@ for /f "skip=4 tokens=1" %%U in ('net user') do (
 :: 1b. Remove Unauthorized Admins (Demote to Standard User)
 :: --------------------------------------------------
 echo [+] Checking for and removing unauthorized administrators...
-for /f "tokens=*" %%A in ('net localgroup Administrators') do (
-    set "line=%%A"
-    if "!line:~0,4!"=="----" (
-        set "start_processing=true"
-    ) else if defined start_processing (
-        if not "!line!"=="" if not "!line!"=="The command completed successfully." (
-            for %%U in (!line!) do (
-                echo !IGNORE_USERS! | findstr /i /c:"%%U" >nul
-                if !errorlevel! neq 0 (
-                    findstr /i /x /c:"%%U" admins.txt >nul
-                    if !errorlevel! neq 0 (
-                        echo     - Unauthorized admin '%%U' found. Removing from Administrators group...
-                        net localgroup Administrators "%%U" /delete >nul
-                    )
-                )
-            )
+for /f "usebackq" %%U in ("system_admins.txt") do (
+    set "admin_user=%%U"
+    echo !IGNORE_USERS! | findstr /i /c:"!admin_user!" >nul
+    if !errorlevel! neq 0 (
+        findstr /i /x /c:"!admin_user!" admins.txt >nul
+        if !errorlevel! neq 0 (
+            echo     - Unauthorized admin '!admin_user!' found. Removing from Administrators group...
+            net localgroup Administrators "!admin_user!" /delete >nul
+            echo DEMOTED Unauthorized Admin: !admin_user! >> %LOG_FILE%
         )
     )
 )
@@ -108,6 +107,7 @@ for /f %%U in (users.txt) do (
     if !errorlevel! neq 0 (
         echo     - User '!user!' does not exist. CREATING account...
         net user "!user!" /add /comment:"Account created by CyberPatriot script." >nul
+        echo CREATED Authorized User: !user! >> %LOG_FILE%
     )
     
     if /i not "!user!"=="%USERNAME%" (
@@ -178,6 +178,68 @@ del temp_update_script.ps1
 
 echo     - Windows Update process initiated. See Windows_Update_Log.txt for details.
 
+:: --------------------------------------------------
+:: 2d. Disable Unnecessary Services
+:: --------------------------------------------------
+echo [+] Disabling unnecessary services...
+sc stop SMTPSVC >nul 2>&1
+sc config SMTPSVC start= disabled >nul 2>&1
+echo     - Simple Mail Transfer Protocol (SMTP): DISABLED
+sc stop FTPSVC >nul 2>&1
+sc config FTPSVC start= disabled >nul 2>&1
+echo     - FTP Service: DISABLED
+
+:: --------------------------------------------------
+:: 2e. Manage Remote Desktop
+:: --------------------------------------------------
+echo [+] Managing Remote Desktop settings...
+set "disableRDP="
+set /p "disableRDP=Do you want to disable Remote Desktop? (Y/N): "
+if /i "!disableRDP!"=="Y" (
+    reg add "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 1 /f >nul
+    echo     - Remote Desktop has been DISABLED.
+    echo DISABLED Remote Desktop >> %LOG_FILE%
+) else (
+    echo     - Remote Desktop settings remain unchanged.
+)
+
+:: --------------------------------------------------
+:: 2f. Manage Default Accounts
+:: --------------------------------------------------
+echo [+] Managing default accounts...
+set "disableDefaults="
+set /p "disableDefaults=Do you want to disable the default Administrator and Guest accounts? (Y/N): "
+if /i "!disableDefaults!"=="Y" (
+    net user Administrator /active:no >nul
+    echo     - Default 'Administrator' account has been DISABLED.
+    echo DISABLED Default Administrator Account >> %LOG_FILE%
+    net user Guest /active:no >nul
+    echo     - Default 'Guest' account has been DISABLED.
+    echo DISABLED Default Guest Account >> %LOG_FILE%
+) else (
+    echo     - Default account settings remain unchanged.
+)
+
+:: --------------------------------------------------
+:: 2g. Manage User Files
+:: --------------------------------------------------
+echo [+] Scanning user files for potential deletion...
+echo. >> %LOG_FILE%
+echo FILE DELETIONS >> %LOG_FILE%
+echo -------------- >> %LOG_FILE%
+for /d %%D in ("%SystemDrive%\Users\*") do (
+    set "userName=%%~nxD"
+    if /i not "!userName!"=="Public" if /i not "!userName!"=="Default" if /i not "!userName!"=="All Users" (
+        if exist "%%D\Documents" (
+            echo --- Scanning files for user: !userName! ---
+            call :ScanAndDelete "%%D\Documents"
+            call :ScanAndDelete "%%D\Pictures"
+            call :ScanAndDelete "%%D\Music"
+            call :ScanAndDelete "%%D\Videos"
+        )
+    )
+)
+
 echo [--- Security Hardening Complete ---]
 
 :: ============================================================================
@@ -187,11 +249,20 @@ echo.
 echo ##############################################################
 echo # Script Finished!                                           #
 echo #                                                            #
-echo # - New passwords have been saved to: %LOG_FILE%             #
+echo # - All actions have been logged to: %LOG_FILE% #
 echo # - A reboot may be required for all changes to take effect. #
 echo ##############################################################
 echo.
-pause
+
+set "restartPC="
+set /p "restartPC=Would you like to restart the computer now? (Y/N): "
+if /i "!restartPC!"=="Y" (
+    echo Restarting computer in 5 seconds...
+    shutdown /r /t 5
+) else (
+    echo Please restart the computer later to apply all changes.
+    pause
+)
 
 goto :eof
 
@@ -209,5 +280,22 @@ set "NEW_PASS="
 for /l %%N in (1,1,14) do (
     set /a "RAND_NUM=!RANDOM! %% 62"
     for %%R in (!RAND_NUM!) do set "NEW_PASS=!NEW_PASS!!ALPHANUM:~%%R,1!"
+)
+goto :eof
+
+:ScanAndDelete
+set "folder=%~1"
+if not exist "%folder%\" goto :eof
+for /r "%folder%" %%F in (*) do (
+    echo   File: %%F
+    set "deleteFile="
+    set /p "deleteFile=  -> Delete this file? (Y/N): "
+    if /i "!deleteFile!"=="Y" (
+        del "%%F"
+        echo      ...DELETED.
+        echo DELETED file: %%F >> %LOG_FILE%
+    ) else (
+        echo      ...SKIPPED.
+    )
 )
 goto :eof
