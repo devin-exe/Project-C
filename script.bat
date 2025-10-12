@@ -3,10 +3,10 @@ setlocal enabledelayedexpansion
 
 :: #############################################################################
 :: #                                                                           #
-:: #                       CyberPatriot Security Script                        #
+:: #                  CyberPatriot Security Script                             #
 :: #                                                                           #
-:: #          Manages users, admins, and security settings.                    #
-:: #          MUST BE RUN AS ADMINISTRATOR.                                    #
+:: #                Manages users, admins, and security settings.              #
+:: #                MUST BE RUN AS ADMINISTRATOR.                              #
 :: #                                                                           #
 :: #############################################################################
 
@@ -55,37 +55,18 @@ echo.
 :: ============================================================================
 echo.
 echo [--- Starting User and Administrator Management ---]
-echo [+] Loading approved user and admin lists...
-set "APPROVED_USERS=|"
-for /f "delims=" %%u in (users.txt) do (
-    set "APPROVED_USERS=!APPROVED_USERS!%%u|"
-)
-set "APPROVED_ADMINS=|"
-for /f "delims=" %%a in (admins.txt) do (
-    set "APPROVED_ADMINS=!APPROVED_ADMINS!%%a|"
-)
 
 :: --------------------------------------------------
 :: 1a. Remove Unauthorized Users
 :: --------------------------------------------------
 echo [+] Checking for and removing unauthorized user accounts...
-for /f "skip=1 delims=" %%i in ('net user') do (
-    for /f "tokens=*" %%U in ("%%i") do (
-        set "user=%%U"
-        set "is_ignored="
-        set "is_approved="
-
-        :: Check against ignore list
-        for %%I in (%IGNORE_USERS%) do (
-            if /i "%%I"=="!user!" set "is_ignored=true"
-        )
-        
-        :: Check against approved users list
-        echo "!APPROVED_USERS!" | findstr /i /c:"|!user!|" >nul
-        if !errorlevel! equ 0 set "is_approved=true"
-        
-        if /i not "!user!"=="%USERNAME%" (
-            if not defined is_ignored if not defined is_approved (
+for /f "skip=4 tokens=1" %%U in ('net user') do (
+    set "user=%%U"
+    if /i not "!user!"=="%USERNAME%" (
+        echo !IGNORE_USERS! | findstr /i /c:"!user!" >nul
+        if !errorlevel! neq 0 (
+            findstr /i /x /c:"!user!" users.txt >nul
+            if !errorlevel! neq 0 (
                 echo     - Unauthorized user '!user!' found. DELETING account and profile...
                 net user "!user!" /delete
             )
@@ -97,36 +78,21 @@ for /f "skip=1 delims=" %%i in ('net user') do (
 :: 1b. Remove Unauthorized Admins (Demote to Standard User)
 :: --------------------------------------------------
 echo [+] Checking for and removing unauthorized administrators...
-set "start_processing="
-for /f "tokens=*" %%L in ('net localgroup Administrators') do (
-    set "raw_admin=%%L"
-    if "!raw_admin:~0,4!"=="----" (
+for /f "tokens=*" %%A in ('net localgroup Administrators') do (
+    set "line=%%A"
+    if "!line:~0,4!"=="----" (
         set "start_processing=true"
     ) else if defined start_processing (
-        if not "!raw_admin!"=="" if not "!raw_admin!"=="The command completed successfully." (
-            set "clean_admin=!raw_admin!"
-            
-            :: This block checks for a '\' and splits the string to get the clean username
-            echo "!raw_admin!" | find "\" >nul
-            if !errorlevel! equ 0 (
-                for /f "tokens=2 delims=\" %%n in ("!raw_admin!") do set "clean_admin=%%n"
-            )
-
-            set "is_ignored="
-            set "is_approved="
-            
-            :: Check against ignore list
-            for %%I in (%IGNORE_USERS%) do (
-                if /i "%%I"=="!clean_admin!" set "is_ignored=true"
-            )
-
-            :: Check against approved admins list
-            echo "!APPROVED_ADMINS!" | findstr /i /c:"|!clean_admin!|" >nul
-            if !errorlevel! equ 0 set "is_approved=true"
-
-            if not defined is_ignored if not defined is_approved (
-                echo     - Unauthorized admin '!raw_admin!' found. Removing from Administrators group...
-                net localgroup Administrators "!raw_admin!" /delete >nul
+        if not "!line!"=="" if not "!line!"=="The command completed successfully." (
+            for %%U in (!line!) do (
+                echo !IGNORE_USERS! | findstr /i /c:"%%U" >nul
+                if !errorlevel! neq 0 (
+                    findstr /i /x /c:"%%U" admins.txt >nul
+                    if !errorlevel! neq 0 (
+                        echo     - Unauthorized admin '%%U' found. Removing from Administrators group...
+                        net localgroup Administrators "%%U" /delete >nul
+                    )
+                )
             )
         )
     )
@@ -158,37 +124,60 @@ for /f %%U in (users.txt) do (
 :: 1d. Ensure Authorized Admins Have Admin Rights
 :: --------------------------------------------------
 echo [+] Ensuring all authorized admins are in the Administrators group...
-for /f "delims=" %%A in (admins.txt) do (
+for /f %%A in (admins.txt) do (
     echo     - Verifying admin rights for '%%A'...
-    net localgroup Administrators "%%A" /add >nul 2>&1
+    net localgroup Administrators "%%A" /add >nul
 )
 echo [--- User and Administrator Management Complete ---]
 
 :: ============================================================================
-:: SECTION 2: SECURITY MANAGEMENT (Unchanged)
+:: SECTION 2: SECURITY MANAGEMENT
 :: ============================================================================
 echo.
 echo [--- Starting Security Hardening ---]
+
+:: --------------------------------------------------
+:: 2a. Enable Windows Security Features
+:: --------------------------------------------------
 echo [+] Enabling Windows Security features via PowerShell...
 powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $false" >nul
 echo     - Real-time Virus ^& Threat Protection: ENABLED
 powershell -Command "Set-MpPreference -DisableBehaviorMonitoring $false" >nul
 echo     - Behavior Monitoring: ENABLED
+
 echo [+] Enabling Windows Firewall for all network profiles...
 netsh advfirewall set allprofiles state on
 echo     - Firewall: ENABLED
+
+:: --------------------------------------------------
+:: 2b. Apply Local Group Policy
+:: --------------------------------------------------
 echo [+] Applying Local Group Policies from the 'Policies' folder...
-if exist "LGPO.exe" ( if exist "Policies" ( LGPO.exe /g .\\Policies && echo     - Group policies applied successfully. ) else ( echo     [!] WARNING: 'Policies' folder not found. ) ) else ( echo     [!] WARNING: LGPO.exe not found. )
+if exist "LGPO.exe" (
+    if exist "Policies" (
+        LGPO.exe /g .\\Policies
+        echo     - Group policies applied successfully.
+    ) else (
+        echo     [!] WARNING: 'Policies' folder not found. Skipping GPO application.
+    )
+) else (
+    echo     [!] WARNING: LGPO.exe not found. Skipping GPO application.
+)
+
+:: --------------------------------------------------
+:: 2c. Check for and Install Windows Updates
+:: --------------------------------------------------
 echo [+] Checking for and installing Windows Updates (this may take a while)...
-(
-echo Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -ErrorAction SilentlyContinue
-echo Install-Module -Name PSWindowsUpdate -Force -SkipPublisherCheck -ErrorAction SilentlyContinue
-echo Import-Module PSWindowsUpdate -ErrorAction SilentlyContinue
-echo Get-WindowsUpdate -Install -AcceptAll -AutoReboot ^| Out-File -FilePath Windows_Update_Log.txt
-) > temp_update_script.ps1
+echo Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -ErrorAction SilentlyContinue > temp_update_script.ps1
+echo Install-Module -Name PSWindowsUpdate -Force -SkipPublisherCheck -ErrorAction SilentlyContinue >> temp_update_script.ps1
+echo Import-Module PSWindowsUpdate -ErrorAction SilentlyContinue >> temp_update_script.ps1
+echo Get-WindowsUpdate -Install -AcceptAll -AutoReboot ^| Out-File -FilePath Windows_Update_Log.txt >> temp_update_script.ps1
+
 powershell -NoProfile -ExecutionPolicy Bypass -File .\\temp_update_script.ps1
 del temp_update_script.ps1
+
 echo     - Windows Update process initiated. See Windows_Update_Log.txt for details.
+
 echo [--- Security Hardening Complete ---]
 
 :: ============================================================================
@@ -203,13 +192,18 @@ echo # - A reboot may be required for all changes to take effect. #
 echo ##############################################################
 echo.
 pause
+
 goto :eof
 
 :: ############################################################################
+:: #                                                                          #
 :: #                          SUBROUTINES                                     #
+:: #                                                                          #
 :: ############################################################################
 
 :GeneratePassword
+:: A secure password will be generated for each user.
+:: This function generates a 14-character alphanumeric password.
 set "ALPHANUM=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 set "NEW_PASS="
 for /l %%N in (1,1,14) do (
