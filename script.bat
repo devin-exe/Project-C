@@ -3,10 +3,10 @@ setlocal enabledelayedexpansion
 
 :: #############################################################################
 :: #                                                                           #
-:: #                       CyberPatriot Security Script                        #
+:: #                  CyberPatriot Security Script                             #
 :: #                                                                           #
-:: #          Manages users, admins, and security settings.                    #
-:: #          MUST BE RUN AS ADMINISTRATOR.                                    #
+:: #                Manages users, admins, and security settings.              #
+:: #                MUST BE RUN AS ADMINISTRATOR.                              #
 :: #                                                                           #
 :: #############################################################################
 
@@ -60,17 +60,15 @@ echo [--- Starting User and Administrator Management ---]
 :: 1a. Remove Unauthorized Users
 :: --------------------------------------------------
 echo [+] Checking for and removing unauthorized user accounts...
-for /f "skip=1 delims=" %%i in ('wmic useraccount get name') do (
-    for /f "tokens=*" %%U in ("%%i") do (
-        set "user=%%U"
-        if /i not "!user!"=="%USERNAME%" (
-            echo !IGNORE_USERS! | findstr /i /c:"!user!" >nul
+for /f "skip=4 tokens=1" %%U in ('net user') do (
+    set "user=%%U"
+    if /i not "!user!"=="%USERNAME%" (
+        echo !IGNORE_USERS! | findstr /i /c:"!user!" >nul
+        if !errorlevel! neq 0 (
+            findstr /i /x /c:"!user!" users.txt >nul
             if !errorlevel! neq 0 (
-                findstr /i /x /c:"!user!" users.txt >nul
-                if !errorlevel! neq 0 (
-                    echo     - Unauthorized user '!user!' found. DELETING account and profile...
-                    net user "!user!" /delete
-                )
+                echo     - Unauthorized user '!user!' found. DELETING account and profile...
+                net user "!user!" /delete
             )
         )
     )
@@ -80,21 +78,20 @@ for /f "skip=1 delims=" %%i in ('wmic useraccount get name') do (
 :: 1b. Remove Unauthorized Admins (Demote to Standard User)
 :: --------------------------------------------------
 echo [+] Checking for and removing unauthorized administrators...
-set "start_processing="
 for /f "tokens=*" %%A in ('net localgroup Administrators') do (
     set "line=%%A"
-    
     if "!line:~0,4!"=="----" (
         set "start_processing=true"
     ) else if defined start_processing (
         if not "!line!"=="" if not "!line!"=="The command completed successfully." (
-            set "admin_user=!line!"
-            echo !IGNORE_USERS! | findstr /i /x /c:"!admin_user!" >nul
-            if !errorlevel! neq 0 (
-                findstr /i /x /c:"!admin_user!" admins.txt >nul
+            for %%U in (!line!) do (
+                echo !IGNORE_USERS! | findstr /i /c:"%%U" >nul
                 if !errorlevel! neq 0 (
-                    echo     - Unauthorized admin '!admin_user!' found. Removing from Administrators group...
-                    net localgroup Administrators "!admin_user!" /delete >nul
+                    findstr /i /x /c:"%%U" admins.txt >nul
+                    if !errorlevel! neq 0 (
+                        echo     - Unauthorized admin '%%U' found. Removing from Administrators group...
+                        net localgroup Administrators "%%U" /delete >nul
+                    )
                 )
             )
         )
