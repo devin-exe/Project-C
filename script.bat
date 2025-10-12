@@ -5,8 +5,8 @@ setlocal enabledelayedexpansion
 :: #                                                                           #
 :: #                  CyberPatriot Security Script                             #
 :: #                                                                           #
-:: #                Manages users, admins, and security settings.              #
-:: #                MUST BE RUN AS ADMINISTRATOR.                              #
+:: #      Manages users, admins, services, files, and security settings.       #
+:: #      MUST BE RUN AS ADMINISTRATOR.                                        #
 :: #                                                                           #
 :: #############################################################################
 
@@ -43,7 +43,7 @@ echo [+] Required files (users.txt, admins.txt) found.
 
 :: 3. Define accounts to ignore to prevent system breakage
 set "IGNORE_USERS=Administrator Guest DefaultAccount WDAGUtilityAccount"
-set "LOG_FILE=Password_Changes.log"
+set "LOG_FILE=Security_Changes.log"
 
 :: Clear previous log file and write header
 echo Script run on %date% at %time% > %LOG_FILE%
@@ -56,12 +56,26 @@ echo.
 echo.
 echo [--- Starting User and Administrator Management ---]
 
+:: Create temporary files to hold current system users and admins
+wmic useraccount get name | findstr /v /c:"Name" > current_users.tmp
+net localgroup Administrators > current_admins_raw.tmp
+
+:: Clean up the admin list
+(for /f "skip=6 tokens=*" %%A in (current_admins_raw.tmp) do (
+    if not "%%A"=="The command completed successfully." (
+        echo %%A
+    )
+)) > current_admins.tmp
+
+del current_admins_raw.tmp
+
 :: --------------------------------------------------
 :: 1a. Remove Unauthorized Users
 :: --------------------------------------------------
 echo [+] Checking for and removing unauthorized user accounts...
-for /f "skip=4 tokens=1" %%U in ('net user') do (
+for /f "tokens=*" %%U in (current_users.tmp) do (
     set "user=%%U"
+    set "user=!user:~0,-1!"
     if /i not "!user!"=="%USERNAME%" (
         echo !IGNORE_USERS! | findstr /i /c:"!user!" >nul
         if !errorlevel! neq 0 (
@@ -78,25 +92,19 @@ for /f "skip=4 tokens=1" %%U in ('net user') do (
 :: 1b. Remove Unauthorized Admins (Demote to Standard User)
 :: --------------------------------------------------
 echo [+] Checking for and removing unauthorized administrators...
-for /f "tokens=*" %%A in ('net localgroup Administrators') do (
-    set "line=%%A"
-    if "!line:~0,4!"=="----" (
-        set "start_processing=true"
-    ) else if defined start_processing (
-        if not "!line!"=="" if not "!line!"=="The command completed successfully." (
-            for %%U in (!line!) do (
-                echo !IGNORE_USERS! | findstr /i /c:"%%U" >nul
-                if !errorlevel! neq 0 (
-                    findstr /i /x /c:"%%U" admins.txt >nul
-                    if !errorlevel! neq 0 (
-                        echo     - Unauthorized admin '%%U' found. Removing from Administrators group...
-                        net localgroup Administrators "%%U" /delete >nul
-                    )
-                )
-            )
+for /f "tokens=*" %%A in (current_admins.tmp) do (
+    echo !IGNORE_USERS! | findstr /i /c:"%%A" >nul
+    if !errorlevel! neq 0 (
+        findstr /i /x /c:"%%A" admins.txt >nul
+        if !errorlevel! neq 0 (
+            echo     - Unauthorized admin '%%A' found. Removing from Administrators group...
+            net localgroup Administrators "%%A" /delete >nul
         )
     )
 )
+
+del current_users.tmp
+del current_admins.tmp
 
 :: --------------------------------------------------
 :: 1c. Create Authorized Users and Reset Passwords
@@ -128,20 +136,66 @@ for /f %%A in (admins.txt) do (
     echo     - Verifying admin rights for '%%A'...
     net localgroup Administrators "%%A" /add >nul
 )
+
+:: --------------------------------------------------
+:: 1e. Manage Default Accounts
+:: --------------------------------------------------
+echo.
+set /p disable_defaults="[?] Do you want to disable the default Administrator and Guest accounts? (Y/N): "
+if /i "%disable_defaults%"=="Y" (
+    echo [+] Disabling default accounts...
+    net user Administrator /active:no
+    echo     - 'Administrator' account DISABLED.
+    net user Guest /active:no
+    echo     - 'Guest' account DISABLED.
+) else (
+    echo [-] Skipping default account management.
+)
+
 echo [--- User and Administrator Management Complete ---]
 
 :: ============================================================================
-:: SECTION 2: SECURITY MANAGEMENT
+:: SECTION 2: SECURITY HARDENING
 :: ============================================================================
 echo.
 echo [--- Starting Security Hardening ---]
 
 :: --------------------------------------------------
-:: 2a. Enable Windows Security Features
+:: 2a. Service Management
+:: --------------------------------------------------
+set /p disable_services="[?] Do you want to disable unnecessary services (FTP, Telnet, Remote Desktop, etc.)? (Y/N): "
+if /i "%disable_services%"=="Y" (
+    echo [+] Disabling unnecessary services...
+    sc config "TermService" start=disabled >nul & net stop "TermService" >nul & echo     - Remote Desktop Services: DISABLED
+    sc config "RemoteRegistry" start=disabled >nul & net stop "RemoteRegistry" >nul & echo     - Remote Registry: DISABLED
+    sc config "Telnet" start=disabled >nul & net stop "Telnet" >nul & echo     - Telnet: DISABLED
+    sc config "ftpsvc" start=disabled >nul & net stop "ftpsvc" >nul & echo     - FTP Service: DISABLED
+    sc config "smtpsvc" start=disabled >nul & net stop "smtpsvc" >nul & echo     - SMTP Service: DISABLED
+) else (
+    echo [-] Skipping service management.
+)
+
+:: --------------------------------------------------
+:: 2b. File Management
+:: --------------------------------------------------
+echo [+] Scanning user profiles for unauthorized files (.mp3, .mp4, .mov, .exe, etc.)...
+for /r "%SystemDrive%\Users" %%F in (*.mp3, *.mp4, *.mov, *.avi, *.wav, *.m4a, *.exe, *.msi, *.bat, *.vbs) do (
+    if exist "%%F" (
+        set /p delete_file="[?] Found file: %%F. Do you want to delete it? (Y/N): "
+        if /i "!delete_file!"=="Y" (
+            del "%%F"
+            echo "    - DELETED: %%F"
+            echo Deleted unauthorized file: %%F >> %LOG_FILE%
+        )
+    )
+)
+
+:: --------------------------------------------------
+:: 2c. Enable Windows Security Features
 :: --------------------------------------------------
 echo [+] Enabling Windows Security features via PowerShell...
 powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $false" >nul
-echo     - Real-time Virus ^& Threat Protection: ENABLED
+echo     - Real-time Virus & Threat Protection: ENABLED
 powershell -Command "Set-MpPreference -DisableBehaviorMonitoring $false" >nul
 echo     - Behavior Monitoring: ENABLED
 
@@ -150,7 +204,7 @@ netsh advfirewall set allprofiles state on
 echo     - Firewall: ENABLED
 
 :: --------------------------------------------------
-:: 2b. Apply Local Group Policy
+:: 2d. Apply Local Group Policy
 :: --------------------------------------------------
 echo [+] Applying Local Group Policies from the 'Policies' folder...
 if exist "LGPO.exe" (
@@ -165,13 +219,13 @@ if exist "LGPO.exe" (
 )
 
 :: --------------------------------------------------
-:: 2c. Check for and Install Windows Updates
+:: 2e. Check for and Install Windows Updates
 :: --------------------------------------------------
 echo [+] Checking for and installing Windows Updates (this may take a while)...
 echo Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -ErrorAction SilentlyContinue > temp_update_script.ps1
 echo Install-Module -Name PSWindowsUpdate -Force -SkipPublisherCheck -ErrorAction SilentlyContinue >> temp_update_script.ps1
 echo Import-Module PSWindowsUpdate -ErrorAction SilentlyContinue >> temp_update_script.ps1
-echo Get-WindowsUpdate -Install -AcceptAll -AutoReboot ^| Out-File -FilePath Windows_Update_Log.txt >> temp_update_script.ps1
+echo Get-WindowsUpdate -Install -AcceptAll -AutoReboot | Out-File -FilePath Windows_Update_Log.txt >> temp_update_script.ps1
 
 powershell -NoProfile -ExecutionPolicy Bypass -File .\\temp_update_script.ps1
 del temp_update_script.ps1
@@ -187,12 +241,20 @@ echo.
 echo ##############################################################
 echo # Script Finished!                                           #
 echo #                                                            #
-echo # - New passwords have been saved to: %LOG_FILE%             #
+echo # - Changes have been saved to: %LOG_FILE%                   #
 echo # - A reboot may be required for all changes to take effect. #
 echo ##############################################################
 echo.
-pause
 
+set /p reboot_choice="[?] Do you want to reboot the computer now? (Y/N): "
+if /i "%reboot_choice%"=="Y" (
+    echo [+] Rebooting computer now...
+    shutdown /r /t 0
+) else (
+    echo [+] Reboot cancelled. Please reboot manually later.
+)
+
+pause
 goto :eof
 
 :: ############################################################################
