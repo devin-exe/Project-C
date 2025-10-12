@@ -78,7 +78,7 @@ for /f "skip=4 tokens=*" %%L in ('net user') do (
                 if !errorlevel! neq 0 (
                     
                     :: 3. Check if user is NOT in the authorized list (users.txt)
-                    findstr /i /x /c:"!user!" users.txt >nul
+                    findstr /i /c:"!user!" users.txt >nul
                     if !errorlevel! neq 0 (
                         echo      - Unauthorized user '!user!' found. DELETING account and profile...
                         net user "!user!" /delete
