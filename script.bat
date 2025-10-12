@@ -60,15 +60,30 @@ echo [--- Starting User and Administrator Management ---]
 :: 1a. Remove Unauthorized Users
 :: --------------------------------------------------
 echo [+] Checking for and removing unauthorized user accounts...
-for /f "skip=4 tokens=1" %%U in ('net user') do (
-    set "user=%%U"
-    if /i not "!user!"=="%USERNAME%" (
-        echo !IGNORE_USERS! | findstr /i /c:"!user!" >nul
-        if !errorlevel! neq 0 (
-            findstr /i /x /c:"!user!" users.txt >nul
-            if !errorlevel! neq 0 (
-                echo     - Unauthorized user '!user!' found. DELETING account and profile...
-                net user "!user!" /delete
+for /f "skip=4 tokens=*" %%L in ('net user') do (
+    set "line=%%L"
+    
+    :: Ignore the successful completion line
+    if /i not "!line!"=="The command completed successfully." (
+        
+        :: Iterate over each user token (%%U) found on the captured line (%%L)
+        for %%U in (%%L) do (
+            set "user=%%U"
+            
+            :: 1. Check if the user is the currently logged-in user (skip)
+            if /i not "!user!"=="%USERNAME%" (
+                
+                :: 2. Check if the user is in the IGNORE_USERS list (system accounts)
+                echo !IGNORE_USERS! | findstr /i /c:"!user!" >nul
+                if !errorlevel! neq 0 (
+                    
+                    :: 3. Check if user is NOT in the authorized list (users.txt)
+                    findstr /i /x /c:"!user!" users.txt >nul
+                    if !errorlevel! neq 0 (
+                        echo      - Unauthorized user '!user!' found. DELETING account and profile...
+                        net user "!user!" /delete
+                    )
+                )
             )
         )
     )
