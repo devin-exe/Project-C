@@ -102,7 +102,7 @@ for /f "tokens=*" %%A in ('net localgroup Administrators') do (
             for %%U in (!line!) do (
                 echo !IGNORE_USERS! | findstr /i /c:"%%U" >nul
                 if !errorlevel! neq 0 (
-                    findstr /i /x /c:"%%U" admins.txt >nul
+                    findstr /i /c:"%%U" admins.txt >nul
                     if !errorlevel! neq 0 (
                         echo     - Unauthorized admin '%%U' found. Removing from Administrators group...
                         net localgroup Administrators "%%U" /delete >nul
