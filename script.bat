@@ -69,7 +69,7 @@ for /f "delims=" %%a in (admins.txt) do (
 :: 1a. Remove Unauthorized Users
 :: --------------------------------------------------
 echo [+] Checking for and removing unauthorized user accounts...
-for /f "skip=1 delims=" %%i in (net user) do (
+for /f "skip=1 delims=" %%i in ('net user') do (
     for /f "tokens=*" %%U in ("%%i") do (
         set "user=%%U"
         set "is_ignored="
