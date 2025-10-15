@@ -195,21 +195,7 @@ if exist "LGPO.exe" (
 )
 
 :: --------------------------------------------------
-:: 2c. Check for and Install Windows Updates
-:: --------------------------------------------------
-echo [+] Checking for and installing Windows Updates (this may take a while)...
-echo Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -ErrorAction SilentlyContinue > temp_update_script.ps1
-echo Install-Module -Name PSWindowsUpdate -Force -SkipPublisherCheck -ErrorAction SilentlyContinue >> temp_update_script.ps1
-echo Import-Module PSWindowsUpdate -ErrorAction SilentlyContinue >> temp_update_script.ps1
-echo Get-WindowsUpdate -Install -AcceptAll -AutoReboot ^| Out-File -FilePath Windows_Update_Log.txt >> temp_update_script.ps1
-
-powershell -NoProfile -ExecutionPolicy Bypass -File .\\temp_update_script.ps1
-del temp_update_script.ps1
-
-echo     - Windows Update process initiated. See Windows_Update_Log.txt for details.
-
-:: --------------------------------------------------
-:: 2d. Disable Unnecessary Services
+:: 2c. Disable Unnecessary Services
 :: --------------------------------------------------
 echo [+] Disabling unnecessary and insecure services...
 set "SERVICES_TO_DISABLE=TlntSvr SMTPSVC MSFTPSVC SNMPTRAP RemoteRegistry"
@@ -225,7 +211,7 @@ for %%S in (%SERVICES_TO_DISABLE%) do (
 )
 
 :: --------------------------------------------------
-:: 2e. Scan for Unallowed File Types
+:: 2d. Scan for Unallowed File Types
 :: --------------------------------------------------
 echo [+] Scanning for unallowed file types in user profiles (C:\Users)...
 set "UNALLOWED_EXT=*.mp3 *.mp4 *.mov *.avi *.wav *.mkv"
@@ -245,6 +231,20 @@ for %%E in (%UNALLOWED_EXT%) do (
         )
     )
 )
+
+:: --------------------------------------------------
+:: 2e. Check for and Install Windows Updates
+:: --------------------------------------------------
+echo [+] Checking for and installing Windows Updates (this may take a while)...
+echo Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -ErrorAction SilentlyContinue > temp_update_script.ps1
+echo Install-Module -Name PSWindowsUpdate -Force -SkipPublisherCheck -ErrorAction SilentlyContinue >> temp_update_script.ps1
+echo Import-Module PSWindowsUpdate -ErrorAction SilentlyContinue >> temp_update_script.ps1
+echo Get-WindowsUpdate -Install -AcceptAll -AutoReboot ^| Out-File -FilePath Windows_Update_Log.txt >> temp_update_script.ps1
+
+powershell -NoProfile -ExecutionPolicy Bypass -File .\\temp_update_script.ps1
+del temp_update_script.ps1
+
+echo     - Windows Update process initiated. See Windows_Update_Log.txt for details.
 
 echo [--- Security Hardening Complete ---]
 
