@@ -3,10 +3,10 @@ setlocal enabledelayedexpansion
 
 :: #############################################################################
 :: #                                                                           #
-:: #                  CyberPatriot Security Script                             #
+:: #                       CyberPatriot Security Script                        #
 :: #                                                                           #
-:: #                Manages users, admins, and security settings.              #
-:: #                MUST BE RUN AS ADMINISTRATOR.                              #
+:: #             Manages users, admins, and security settings.                 #
+:: #                  MUST BE RUN AS ADMINISTRATOR.                            #
 :: #                                                                           #
 :: #############################################################################
 
@@ -57,7 +57,22 @@ echo.
 echo [--- Starting User and Administrator Management ---]
 
 :: --------------------------------------------------
-:: 1a. Remove Unauthorized Users
+:: 1a. Disable Default Accounts
+:: --------------------------------------------------
+echo [+] Checking default built-in accounts...
+set "disable_defaults="
+set /p "disable_defaults=Do you want to disable the default Administrator and Guest accounts? (Y/N): "
+if /i "%disable_defaults%"=="Y" (
+    echo     - Disabling Administrator account...
+    net user Administrator /active:no >nul
+    echo     - Disabling Guest account...
+    net user Guest /active:no >nul
+) else (
+    echo     - Skipping disabling of default accounts.
+)
+
+:: --------------------------------------------------
+:: 1b. Remove Unauthorized Users
 :: --------------------------------------------------
 echo [+] Checking for and removing unauthorized user accounts...
 for /f "skip=4 tokens=*" %%L in ('net user') do (
@@ -80,7 +95,7 @@ for /f "skip=4 tokens=*" %%L in ('net user') do (
                     :: 3. Check if user is NOT in the authorized list (users.txt)
                     findstr /i /c:"!user!" users.txt >nul
                     if !errorlevel! neq 0 (
-                        echo      - Unauthorized user '!user!' found. DELETING account and profile...
+                        echo     - Unauthorized user '!user!' found. DELETING account and profile...
                         net user "!user!" /delete
                     )
                 )
@@ -90,7 +105,7 @@ for /f "skip=4 tokens=*" %%L in ('net user') do (
 )
 
 :: --------------------------------------------------
-:: 1b. Remove Unauthorized Admins (Demote to Standard User)
+:: 1c. Remove Unauthorized Admins (Demote to Standard User)
 :: --------------------------------------------------
 echo [+] Checking for and removing unauthorized administrators...
 for /f "tokens=*" %%A in ('net localgroup Administrators') do (
@@ -114,7 +129,7 @@ for /f "tokens=*" %%A in ('net localgroup Administrators') do (
 )
 
 :: --------------------------------------------------
-:: 1c. Create Authorized Users and Reset Passwords
+:: 1d. Create Authorized Users and Reset Passwords
 :: --------------------------------------------------
 echo [+] Creating missing authorized users and resetting passwords...
 for /f %%U in (users.txt) do (
@@ -136,7 +151,7 @@ for /f %%U in (users.txt) do (
 )
 
 :: --------------------------------------------------
-:: 1d. Ensure Authorized Admins Have Admin Rights
+:: 1e. Ensure Authorized Admins Have Admin Rights
 :: --------------------------------------------------
 echo [+] Ensuring all authorized admins are in the Administrators group...
 for /f %%A in (admins.txt) do (
@@ -193,6 +208,44 @@ del temp_update_script.ps1
 
 echo     - Windows Update process initiated. See Windows_Update_Log.txt for details.
 
+:: --------------------------------------------------
+:: 2d. Disable Unnecessary Services
+:: --------------------------------------------------
+echo [+] Disabling unnecessary and insecure services...
+set "SERVICES_TO_DISABLE=TlntSvr SMTPSVC MSFTPSVC SNMPTRAP RemoteRegistry"
+for %%S in (%SERVICES_TO_DISABLE%) do (
+    sc query "%%S" >nul 2>&1
+    if !errorlevel! equ 0 (
+        echo     - Disabling and stopping service: %%S
+        sc config "%%S" start=disabled >nul
+        sc stop "%%S" >nul
+    ) else (
+        echo     - Service %%S not found, skipping.
+    )
+)
+
+:: --------------------------------------------------
+:: 2e. Scan for Unallowed File Types
+:: --------------------------------------------------
+echo [+] Scanning for unallowed file types in user profiles (C:\Users)...
+set "UNALLOWED_EXT=*.mp3 *.mp4 *.mov *.avi *.wav *.mkv"
+for %%E in (%UNALLOWED_EXT%) do (
+    for /r "C:\Users" %%F in (%%E) do (
+        if exist "%%F" (
+            echo.
+            echo     - Found file: "%%F"
+            set "delete_file="
+            set /p "delete_file=Do you want to delete this file? (Y/N): "
+            if /i "!delete_file!"=="Y" (
+                del "%%F"
+                echo         ...DELETED.
+            ) else (
+                echo         ...SKIPPED.
+            )
+        )
+    )
+)
+
 echo [--- Security Hardening Complete ---]
 
 :: ============================================================================
@@ -202,7 +255,7 @@ echo.
 echo ##############################################################
 echo # Script Finished!                                           #
 echo #                                                            #
-echo # - New passwords have been saved to: %LOG_FILE%             #
+echo # - New passwords have been saved to: %LOG_FILE%               #
 echo # - A reboot may be required for all changes to take effect. #
 echo ##############################################################
 echo.
