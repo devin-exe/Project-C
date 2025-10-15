@@ -198,7 +198,7 @@ if exist "LGPO.exe" (
 :: 2c. Disable Unnecessary Services
 :: --------------------------------------------------
 echo [+] Disabling unnecessary and insecure services...
-set "SERVICES_TO_DISABLE=TlntSvr SMTPSVC MSFTPSVC SNMPTRAP RemoteRegistry"
+set "SERVICES_TO_DISABLE=TlntSvr SMTPSVC FTPSVC SNMPTRAP RemoteRegistry"
 for %%S in (%SERVICES_TO_DISABLE%) do (
     sc query "%%S" >nul 2>&1
     if !errorlevel! equ 0 (
