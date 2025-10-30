@@ -202,16 +202,19 @@ if exist "LGPO.exe" (
 :: 2c. Disable Unnecessary Services
 :: --------------------------------------------------
 echo [+] Checking for Remote Desktop (RDP)... 
-set "disable_rdp=" 
-set /p "disable_rdp=Do you want to disable Remote Desktop? (Y/N): " 
-if /i "%disable_rdp%"=="Y" ( 
-    echo     - Disabling Remote Desktop Service (TermService)... 
-    sc config "TermService" start=disabled >nul 
-    sc stop "TermService" >nul 
-    echo     - Setting registry key to deny RDP connections... 
-    reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 1 /f >nul 
-) else (
-    echo     - Skipping Remote Desktop. 
+choice /C YN /M "Do you want to disable Remote Desktop?"
+if errorlevel 2 goto :SKIP_RDP
+
+:: IF errorlevel 1 (which is 'Y' in CHOICE)
+echo    - Disabling Remote Desktop Service (TermService)... 
+sc config "TermService" start= disabled >nul
+sc stop "TermService" >nul
+echo    - Setting registry key to deny RDP connections... 
+reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 1 /f >nul
+goto :END_RDP_CHECK
+
+:SKIP_RDP
+echo    - Skipping Remote Desktop.
 )
 
 echo [+] Disabling unnecessary and insecure services...
