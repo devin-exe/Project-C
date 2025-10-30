@@ -3,10 +3,10 @@ setlocal enabledelayedexpansion
 
 :: #############################################################################
 :: #                                                                           #
-:: #                       CyberPatriot Security Script                      #
+:: #                       CyberPatriot Security Script                        #
 :: #                                                                           #
-:: #             Manages users, admins, and security settings.               #
-:: #                   MUST BE RUN AS ADMINISTRATOR.                         #
+:: #             Manages users, admins, and security settings.                 #
+:: #                  MUST BE RUN AS ADMINISTRATOR.                            #
 :: #                                                                           #
 :: #############################################################################
 
@@ -145,10 +145,6 @@ for /f %%U in (users.txt) do (
         echo     - Setting new secure password for user '!user!'...
         net user "!user!" "!NEW_PASS!" >nul
         echo User: !user! --^> New Password: !NEW_PASS! >> %LOG_FILE%
-        
-        echo     - Forcing password to expire for user '!user!'... 
-        wmic UserAccount where Name='!user!' set PasswordExpires=True >nul 
-        
     ) else (
         echo     - Skipping password reset for current user: !user!
     )
@@ -201,24 +197,8 @@ if exist "LGPO.exe" (
 :: --------------------------------------------------
 :: 2c. Disable Unnecessary Services
 :: --------------------------------------------------
-echo [+] Checking for Remote Desktop (RDP)... 
-choice /C YN /M "Do you want to disable Remote Desktop?"
-if errorlevel 2 goto :SKIP_RDP
-
-:: IF errorlevel 1 (which is 'Y' in CHOICE)
-echo    - Disabling Remote Desktop Service (TermService)... 
-sc config "TermService" start= disabled >nul
-sc stop "TermService" >nul
-echo    - Setting registry key to deny RDP connections... 
-reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 1 /f >nul
-goto :END_RDP_CHECK
-
-:SKIP_RDP
-echo    - Skipping Remote Desktop.
-)
-
 echo [+] Disabling unnecessary and insecure services...
-set "SERVICES_TO_DISABLE=TlntSvr SMTPSVC FTPSVC SNMPTRAP RemoteRegistry RemoteAccess RasMan SharedAccess Fax"
+set "SERVICES_TO_DISABLE=TlntSvr SMTPSVC FTPSVC SNMPTRAP RemoteRegistry"
 for %%S in (%SERVICES_TO_DISABLE%) do (
     sc query "%%S" >nul 2>&1
     if !errorlevel! equ 0 (
@@ -234,7 +214,7 @@ for %%S in (%SERVICES_TO_DISABLE%) do (
 :: 2d. Scan for Unallowed File Types
 :: --------------------------------------------------
 echo [+] Scanning for unallowed file types in user profiles (C:\Users)...
-set "UNALLOWED_EXT=*.mp3 *.mp4 *.mov *.avi *.wav *.mkv *.iso *.vhd *.vhdx *.exe *.msi *.bat *.cmd *.ps1 *.vbs *.torrent"
+set "UNALLOWED_EXT=*.mp3 *.mp4 *.mov *.avi *.wav *.mkv"
 for %%E in (%UNALLOWED_EXT%) do (
     for /r "C:\Users" %%F in (%%E) do (
         if exist "%%F" (
@@ -273,9 +253,9 @@ echo [--- Security Hardening Complete ---]
 :: ============================================================================
 echo.
 echo ##############################################################
-echo # Script Finished!                                         #
+echo # Script Finished!                                           #
 echo #                                                            #
-echo # - New passwords have been saved to: %LOG_FILE%           #
+echo # - New passwords have been saved to: %LOG_FILE%             #
 echo # - A reboot may be required for all changes to take effect. #
 echo ##############################################################
 echo.
@@ -285,7 +265,7 @@ goto :eof
 
 :: ############################################################################
 :: #                                                                          #
-:: #                           SUBROUTINES                                  #
+:: #                          SUBROUTINES                                     #
 :: #                                                                          #
 :: ############################################################################
 
