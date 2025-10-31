@@ -203,6 +203,17 @@ if exist "LGPO.exe" (
 :: --------------------------------------------------
 echo [+] Disabling unnecessary and insecure services...
 set "SERVICES_TO_DISABLE=TlntSvr SMTPSVC FTPSVC SNMPTRAP RemoteRegistry RemoteAccess RasMan SharedAccess Fax"
+
+:: Ask user whether to disable Remote Desktop (RDP). If yes, add TermService to the list.
+set "disable_rdp="
+set /p "disable_rdp=Do you want to disable Remote Desktop (RDP)? (Y/N): "
+if /i "%disable_rdp%"=="Y" (
+    echo     - User chose to disable Remote Desktop. Adding TermService to disable list.
+    set "SERVICES_TO_DISABLE=%SERVICES_TO_DISABLE% TermService"
+) else (
+    echo     - Remote Desktop will remain enabled.
+)
+
 for %%S in (%SERVICES_TO_DISABLE%) do (
     sc query "%%S" >nul 2>&1
     if !errorlevel! equ 0 (
