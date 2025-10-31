@@ -145,6 +145,10 @@ for /f %%U in (users.txt) do (
         echo     - Setting new secure password for user '!user!'...
         net user "!user!" "!NEW_PASS!" >nul
         echo User: !user! --^> New Password: !NEW_PASS! >> %LOG_FILE%
+        
+        echo     - Forcing password to expire for user '!user!'... 
+        wmic UserAccount where Name='!user!' set PasswordExpires=True >nul 
+        
     ) else (
         echo     - Skipping password reset for current user: !user!
     )
@@ -198,7 +202,7 @@ if exist "LGPO.exe" (
 :: 2c. Disable Unnecessary Services
 :: --------------------------------------------------
 echo [+] Disabling unnecessary and insecure services...
-set "SERVICES_TO_DISABLE=TlntSvr SMTPSVC FTPSVC SNMPTRAP RemoteRegistry"
+set "SERVICES_TO_DISABLE=TlntSvr SMTPSVC FTPSVC SNMPTRAP RemoteRegistry RemoteAccess RasMan SharedAccess Fax"
 for %%S in (%SERVICES_TO_DISABLE%) do (
     sc query "%%S" >nul 2>&1
     if !errorlevel! equ 0 (
@@ -214,7 +218,7 @@ for %%S in (%SERVICES_TO_DISABLE%) do (
 :: 2d. Scan for Unallowed File Types
 :: --------------------------------------------------
 echo [+] Scanning for unallowed file types in user profiles (C:\Users)...
-set "UNALLOWED_EXT=*.mp3 *.mp4 *.mov *.avi *.wav *.mkv"
+set "UNALLOWED_EXT=*.mp3 *.mp4 *.mov *.avi *.wav *.mkv *.iso *.vhd *.vhdx *.exe *.msi *.bat *.cmd *.ps1 *.vbs *.torrent"
 for %%E in (%UNALLOWED_EXT%) do (
     for /r "C:\Users" %%F in (%%E) do (
         if exist "%%F" (
