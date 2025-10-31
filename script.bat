@@ -206,12 +206,18 @@ set "SERVICES_TO_DISABLE=TlntSvr SMTPSVC FTPSVC SNMPTRAP RemoteRegistry RemoteAc
 set "disable_rdp="
 set /p "disable_rdp=Do you want to disable Remote Desktop (RDP) service? (Y/N): "
 if /i "%disable_rdp%"=="Y" (
-    :: Use !VAR! to correctly read and append the current variable value within the block
-    set "SERVICES_TO_DISABLE=!SERVICES_TO_DISABLE! TermService"
-    echo      - Remote Desktop (TermService) added to disable list.
+    goto :ADD_RDP
 ) else (
     echo      - Skipping Remote Desktop (TermService).
 )
+goto :PROCESS_SERVICES
+
+:ADD_RDP
+    set "SERVICES_TO_DISABLE=!SERVICES_TO_DISABLE! TermService"
+    echo      - Remote Desktop (TermService) added to disable list.
+    goto :PROCESS_SERVICES
+
+:PROCESS_SERVICES
 :: =======================
 
 for %%S in (%SERVICES_TO_DISABLE%) do (
