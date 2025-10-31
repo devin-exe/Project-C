@@ -201,17 +201,32 @@ if exist "LGPO.exe" (
 :: --------------------------------------------------
 :: 2c. Disable Unnecessary Services
 :: --------------------------------------------------
+echo [+] Checking for Remote Desktop (RDP)...
+set "disable_rdp="
+set /p "disable_rdp=Do you want to disable Remote Desktop? (Y/N): "
+if /i "%disable_rdp%"=="Y" (   
+    echo     - Disabling Remote Desktop Service (TermService)...
+    sc config "TermService" start=disabled >nul
+    sc stop "TermService" >nul
+    echo     - Setting registry key to deny RDP connections...
+    reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 1 /f >nul
+    echo     - Disabling Remote Desktop Firewall Rule...
+    netsh advfirewall firewall set rule group="Remote Desktop" new enable=no >nul
+) else ( 
+    echo     - Skipping Remote Desktop. 
+)
+
 echo [+] Disabling unnecessary and insecure services...
 set "SERVICES_TO_DISABLE=TlntSvr SMTPSVC FTPSVC SNMPTRAP RemoteRegistry RemoteAccess RasMan SharedAccess Fax"
 for %%S in (%SERVICES_TO_DISABLE%) do (
-    sc query "%%S" >nul 2>&1
-    if !errorlevel! equ 0 (
-        echo     - Disabling and stopping service: %%S
-        sc config "%%S" start=disabled >nul
-        sc stop "%%S" >nul
-    ) else (
-        echo     - Service %%S not found, skipping.
-    )
+    sc query "%%S" >nul 2>&1
+    if !errorlevel! equ 0 (
+        echo     - Disabling and stopping service: %%S
+        sc config "%%S" start=disabled >nul
+        sc stop "%%S" >nul
+    ) else (
+        echo     - Service %%S not found, skipping.
+    )
 )
 
 :: --------------------------------------------------
