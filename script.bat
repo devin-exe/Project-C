@@ -203,15 +203,26 @@ if exist "LGPO.exe" (
 :: --------------------------------------------------
 echo [+] Disabling unnecessary and insecure services...
 set "SERVICES_TO_DISABLE=TlntSvr SMTPSVC FTPSVC SNMPTRAP RemoteRegistry RemoteAccess RasMan SharedAccess Fax"
+
+:: === NEW ADDITION: PROMPT FOR REMOTE DESKTOP ===
+set "disable_rdp="
+set /p "disable_rdp=Do you want to disable Remote Desktop (RDP) service? (Y/N): "
+if /i "%disable_rdp%"=="Y" (
+    set "SERVICES_TO_DISABLE=!SERVICES_TO_DISABLE! TermService"
+    echo      - Remote Desktop (TermService) added to disable list.
+) else (
+    echo      - Skipping Remote Desktop (TermService).
+)
+
 for %%S in (%SERVICES_TO_DISABLE%) do (
-    sc query "%%S" >nul 2>&1
-    if !errorlevel! equ 0 (
-        echo     - Disabling and stopping service: %%S
-        sc config "%%S" start=disabled >nul
-        sc stop "%%S" >nul
-    ) else (
-        echo     - Service %%S not found, skipping.
-    )
+    sc query "%%S" >nul 2>&1
+    if !errorlevel! equ 0 (
+        echo      - Disabling and stopping service: %%S
+        sc config "%%S" start=disabled >nul
+        sc stop "%%S" >nul
+    ) else (
+        echo      - Service %%S not found, skipping.
+    )
 )
 
 :: --------------------------------------------------
