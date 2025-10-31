@@ -204,7 +204,9 @@ if exist "LGPO.exe" (
 echo [+] Checking for Remote Desktop (RDP)...
 set "disable_rdp="
 set /p "disable_rdp=Do you want to disable Remote Desktop? (Y/N): "
-if /i "%disable_rdp%"=="Y" (   
+
+:: FIX APPLIED: Changed %disable_rdp% to !disable_rdp! for immediate expansion
+if /i "!disable_rdp!"=="Y" (   
     echo     - Disabling Remote Desktop Service (TermService)...
     sc config "TermService" start=disabled >nul
     sc stop "TermService" >nul
