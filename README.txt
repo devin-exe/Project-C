@@ -45,6 +45,6 @@ The script will lastly automatically install updates for Windows. This section i
   The VM might not require the newest updates.
   Some VMs ask you not to install updates at all.
 For this reason, the script will still attempt to install updates, but if you wish not to, you can stop the script and delete the Powershell script it utilizes.
-If you do decide to go ahead with the download/install process, a text will be generated to show you the status of which updates have been downloaded and installed.
+If you do decide to go ahead with the download/install process, a text file will be generated to show you the status of which updates have been downloaded and installed.
 
 Overall, this script is very robust, and I highly reccomend you analyze it in depth to ensure you understand it to the fullest extent. In any case, the whole script is here for you to use. Good luck, you'll need it.
