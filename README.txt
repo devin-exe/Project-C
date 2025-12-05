@@ -1,76 +1,50 @@
-Catharsis is a group of scripts designed to secure a virtual machine for the CyberPatriot competition. The following README is an AI-Generated step by step guide to running the script on your virtual machine.
+Made by Devin Kelley (NPHS)
+Catharsis is a group of scripts designed to secure a virtual machine for the CyberPatriot competition. The following README is a step by step guide to running the script on your virtual machine.
 
-CyberPatriot Security Hardening Script
-This batch script automates various security hardening tasks on a Windows system, primarily focusing on user management, administrator privileges, and enabling core security features to help secure an operating system, often for a competition like CyberPatriot.
+--- Setting Up The Script ---
+To use this script on a competition/training round VM, you must first download the zipped folder from this repository, and extract it to create a non-zipped file. 
+Next, you will need to copy over the entire unzipped folder onto the VM's file system. I personally prefer dragging it from my file system to the VM desktop.
 
-🛑 Critical Prerequisite
-This script makes significant changes to your system's user accounts and security settings. It is essential to understand that this will delete unauthorized user accounts and change the passwords for all authorized users (except the one running the script).
-
-MUST BE RUN AS ADMINISTRATOR
-
-⚙️ Requirements & Setup
-Before running the script, you must create two required text files in the same directory as the batch file:
-
-users.txt: A list of all standard (non-admin) authorized user accounts that should exist on the system.
-
-Format: One username per line.
-
+--- User Management Preparation ---
+Before running the script, you MUST first edit the list of approved admins and users. Failing to do this will result in unnecessary user deletion.
+In each text file (admins.txt, users.txt), copy & paste the names of approved users and admins found in the VM README file, with each username being on a different line.
 Example:
+user1
+user2
+user3
 
-student1
-techuser
-john_doe
-admins.txt: A list of all authorized administrator user accounts that should be in the Administrators group.
+It is also important to copy over the list of approved admins to the list of approved users to avoid approved admins having their entire accounts deleted.
+There is a built-in failsafe to prevent the deletion of the current user, as this would negatively impact the state of the VM.
+Other accounts built into Windows by default are handled separately and left to your descretion when running the script.
 
-Format: One username per line.
+--- Running The Script ---
+To run the script, select script.bat and run it as an administator.
+The script will not fully run without administrative privileges, so it is important to remember this.
 
-Example:
+--- User Management ---
+In this section of the script, it will automatically remove unauthorized users, and demote unauthorized admins.
+In addition, each user is configured to have a secure password, which is ensured to expire by force.
+You can find each users new password in an automatically generated file in the same folder as the script.
+As another failsafe, the current user's password is not changed to prevent a potential lockout.
+You can find the current user's password in the README file of the VM.
 
-cyberadmin
-teamlead
-Optional Files
-LGPO.exe and Policies Folder: The script attempts to apply Local Group Policy Objects (GPOs) from a subdirectory named Policies using the Microsoft tool LGPO.exe. If these are not present, the script will skip the GPO application step and issue a warning.
+--- Security Hardening ---
+In this section of the script, many settings are changed to ensure the security of the system and its users.
+The script begins this section by ensuring that Windows Defender and the Firewall are enabled.
 
-🚀 How to Run the Script
-Save the script as a Windows Batch file (e.g., harden.bat).
+Next, the system modifies the group policy using the Microsoft Local Group Policy Editor (LGPO.exe).
+The script retrieves a list of group policies to modify from the "Policies" folder, which are then applied to your system.
+It is critical to ensure that both the .exe file and the Policies folder are preserved for the competition, as this is where most of your points will be acheived.
 
-Ensure you have created and correctly populated the users.txt and admins.txt files in the same folder.
+In the part of the security hardening section, the script automatically stops multiple unsecure services, and scans for unauthorized file types on the system.
+You will be required to manually approve each file that is deleted from the system.
+It is important to ensure that you do not delete any files contained in the "Catharsis" folder, as they will be automatically flagged.
+If you DO delete any files contained in Catharsis, the script could potentially cease functioning, so don't do that. That would be pretty stupid.
 
-Right-click on the batch file (harden.bat).
+The script will lastly automatically install updates for Windows. This section is mostly left up to you for the following reasons:
+  The VM might not require the newest updates.
+  Some VMs ask you not to install updates at all.
+For this reason, the script will still attempt to install updates, but if you wish not to, you can stop the script and delete the Powershell script it utilizes.
+If you do decide to go ahead with the download/install process, a text will be generated to show you the status of which updates have been downloaded and installed.
 
-Select "Run as administrator".
-
-Allow the script to run. It will output its progress to the console.
-
-The script will pause at the end, displaying a final message. Press any key to close the window.
-
-✅ What the Script Does
-Section 1: User and Administrator Management
-Action	Description
-Remove Unauthorized Users	Deletes any local user accounts found that are not listed in users.txt or admins.txt (and not on the system ignore list).
-Demote Unauthorized Admins	Removes any users from the Administrators group if they are not listed in admins.txt.
-Create and Secure Users	Ensures every user listed in users.txt exists. It then resets the password for all authorized users (except the currently logged-in user) to a new, randomly generated, 14-character secure password.
-Authorize Admins	Ensures every user listed in admins.txt is a member of the Administrators group.
-
-Export to Sheets
-Section 2: Security Hardening
-Action	Description
-Windows Security	Enables core Windows Defender features: Real-time Monitoring and Behavior Monitoring.
-Windows Firewall	Sets the Windows Defender Firewall state to ON for all network profiles (Domain, Private, and Public).
-Local Group Policy	Attempts to apply security policies from a local Policies folder using LGPO.exe (if available).
-Windows Updates	Initiates a PowerShell process to install the PSWindowsUpdate module, then checks for and installs all available Windows updates.
-
-Export to Sheets
-📝 Output and Logs
-Upon completion, the script generates two files in the same directory:
-
-Password_Changes.log: This is a critical log file that lists the new, randomly generated passwords for all authorized users.
-
-Windows_Update_Log.txt: A log generated by the Windows Update process, detailing the results of the update installation.
-
-⚠️ Important Notes
-A reboot is highly recommended after the script completes to ensure all policy and update changes are fully applied.
-
-The script does not change the password for the user account that executed the script.
-
-System accounts like Administrator, Guest, DefaultAccount, and WDAGUtilityAccount are intentionally ignored and not deleted.
+Overall, this script is very robust, and I highly reccomend you analyze it in depth to ensure you understand it to the fullest extent. In any case, the whole script is here for you to use. Good luck, you'll need it.
