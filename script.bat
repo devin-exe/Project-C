@@ -202,7 +202,7 @@ if exist "LGPO.exe" (
 :: 2c. Disable Unnecessary Services
 :: --------------------------------------------------
 echo [+] Disabling unnecessary and insecure services...
-set "SERVICES_TO_DISABLE=TlntSvr SMTPSVC FTPSVC SNMPTRAP RemoteRegistry RemoteAccess RasMan SharedAccess Fax"
+set "SERVICES_TO_DISABLE=Telephony TapiSrv Tlntsvr tlntsvr p2pimsvc simptcp fax msftpsvc iprip ftpsvc RasMan RasAuto seclogon MSFTPSVC W3SVC SMTPSVC Dfs TrkWks MSDTC DNS ERSVC NtFrs MSFtpsvc helpsvc HTTPFilter IISADMIN IsmServ WmdmPmSN Spooler RDSessMgr RPCLocator RsoPProv ShellHWDetection ScardSvr Sacsvr Uploadmgr VDS VSS WINS WinHttpAutoProxySvc SZCSVC CscService hidserv IPBusEnum PolicyAgent SCPolicySvc SharedAccess SSDPSRV Themes upnphost nfssvc nfsclnt MSSQLServerADHelper"
 for %%S in (%SERVICES_TO_DISABLE%) do (
     sc query "%%S" >nul 2>&1
     if !errorlevel! equ 0 (
@@ -215,23 +215,25 @@ for %%S in (%SERVICES_TO_DISABLE%) do (
 )
 
 :: --------------------------------------------------
-:: 2d. Scan for Unallowed File Types
+:: 2d. Scan for Unallowed File Types (System Wide)
 :: --------------------------------------------------
-echo [+] Scanning for unallowed file types in user profiles (C:\Users)...
-set "UNALLOWED_EXT=*.mp3 *.mp4 *.mov *.avi *.wav *.mkv *.iso *.vhd *.vhdx *.exe *.msi *.bat *.cmd *.ps1 *.vbs *.torrent"
+echo [+] Scanning for unallowed file types on the entire system (C:\)...
+set "UNALLOWED_EXT=*.mp3 *.mp4 *.mov *.avi *.wav *.mkv *.iso *.vhd *.vhdx *.exe *.msi *.bat *.cmd *.ps1 *.vbs *.torrent *.mpg *.mpeg *.flac *.m4a *.flv *.ogg *.gif *.png *.jpg *.jpeg"
 for %%E in (%UNALLOWED_EXT%) do (
-    for /r "C:\Users" %%F in (%%E) do (
+    for /r "C:\" %%F in (%%E) do (
         if exist "%%F" (
             echo.
-            echo     - Found file: "%%F"
+            echo      - Found file: "%%F"
             set "delete_file="
             set /p "delete_file=Do you want to delete this file? (Y/N): "
+            setlocal EnableDelayedExpansion
             if /i "!delete_file!"=="Y" (
                 del "%%F"
-                echo         ...DELETED.
+                echo           ...DELETED.
             ) else (
-                echo         ...SKIPPED.
+                echo           ...SKIPPED.
             )
+            endlocal
         )
     )
 )
